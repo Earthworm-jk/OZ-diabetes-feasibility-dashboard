@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2형 당뇨병 임상시험 타당성 대시보드</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 32px 16px;
+      background: #f5f6f8;
+      font-family: "Pretendard", "Malgun Gothic", sans-serif;
+      color: #222;
+    }
+    .page {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    h1 {
+      font-size: 24px;
+      margin: 0 0 4px;
+    }
+    .subtitle {
+      color: #666;
+      font-size: 14px;
+      margin: 0 0 24px;
+    }
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .kpi {
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    }
+    .kpi-label {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 8px;
+    }
+    .kpi-number {
+      font-size: 34px;
+      font-weight: 700;
+      color: #222;
+    }
+    .kpi.main .kpi-number {
+      color: #2b5cd6;
+    }
+    .kpi-desc {
+      font-size: 12px;
+      color: #999;
+      margin-top: 6px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      margin-bottom: 24px;
+    }
+    .card h2 {
+      font-size: 17px;
+      margin: 0 0 4px;
+    }
+    .card-desc {
+      font-size: 13px;
+      color: #666;
+      margin: 0 0 16px;
+    }
+    .chart-box {
+      position: relative;
+      height: 300px;
+    }
+    .insight {
+      background: #fff;
+      border-left: 5px solid #2b5cd6;
+      border-radius: 12px;
+      padding: 20px 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      margin-bottom: 24px;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+    .note {
+      font-size: 12px;
+      color: #999;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>2형 당뇨병 임상시험 타당성 대시보드</h1>
+    <p class="subtitle">임상시험 타당성 매니저가 신규 2형 당뇨병 임상시험 실시기관 선정 회의 전, 대상 환자가 많은 기관 종별과 권역을 확인하기 위한 화면</p>
+
+    <div class="kpi-row">
+      <div class="kpi main">
+        <div class="kpi-label">대상 환자 수</div>
+        <div class="kpi-number">218명</div>
+        <div class="kpi-desc">주상병 E11(2형 당뇨병) 수진자 고유 수</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">대상 명세서 수</div>
+        <div class="kpi-number">1,754건</div>
+        <div class="kpi-desc">주상병 E11 명세서 건수</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">진료 기관 수</div>
+        <div class="kpi-number">319곳</div>
+        <div class="kpi-desc">E11 환자를 진료한 요양기관 고유 수</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>기관 종별 대상 환자 수</h2>
+      <p class="card-desc">당뇨 환자가 어떤 종별 기관에서 진료받는지 (한 환자가 여러 종별에 다니면 각각 집계되어 합계가 218명보다 큼)</p>
+      <div class="chart-box">
+        <canvas id="clChart"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>권역별 대상 환자 수</h2>
+      <p class="card-desc">진료받은 요양기관의 권역 기준 (% = 대상 환자 218명 대비)</p>
+      <div class="chart-box">
+        <canvas id="regionChart"></canvas>
+      </div>
+    </div>
+
+    <div class="insight">
+      <b>인사이트:</b> 당뇨 환자 218명 중 215명이 의원에서 진료받고, 절반(48%)이 수도권에 있다.
+      임상시험은 주로 종합·상급종합병원에서 진행되므로, 수도권 상급종합병원을 실시기관으로 두고 주변 의원에서 환자를 의뢰받는 네트워크가 등록 속도를 좌우한다.
+    </div>
+
+    <p class="note">※ 데이터: kr_claims 수업용 가상 청구 데이터 (2024.01~2025.12). claim.csv에서 main_sick이 E11로 시작하는 명세서 기준. 종별은 yid로 institution.csv를 붙이고 code_table.csv의 종별코드 이름을 사용. 권역은 institution.csv의 region_cd를 sido_code.csv의 권역 이름으로 변환.</p>
+  </div>
+
+  <script>
+    // 종별 집계 (claim + institution + code_table 조인 결과)
+    const clData = [
+      { name: "의원", patients: 215, insts: 250 },
+      { name: "병원", patients: 20, insts: 27 },
+      { name: "종합병원", patients: 24, insts: 24 },
+      { name: "상급종합병원", patients: 19, insts: 18 }
+    ];
+
+    // 막대 끝에 환자 수 표시
+    const valueLabels = {
+      id: "valueLabels",
+      afterDatasetsDraw(chart) {
+        const { ctx } = chart;
+        ctx.save();
+        ctx.font = "13px 'Malgun Gothic', sans-serif";
+        ctx.fillStyle = "#333";
+        ctx.textAlign = "center";
+        chart.getDatasetMeta(0).data.forEach((bar, i) => {
+          ctx.fillText(`${clData[i].patients}명`, bar.x, bar.y - 8);
+        });
+        ctx.restore();
+      }
+    };
+
+    new Chart(document.getElementById("clChart"), {
+      type: "bar",
+      data: {
+        labels: clData.map(d => d.name),
+        datasets: [{
+          data: clData.map(d => d.patients),
+          backgroundColor: ["#2b5cd6", "#9db4ec", "#9db4ec", "#9db4ec"],
+          borderRadius: 6,
+          barPercentage: 0.6
+        }]
+      },
+      options: {
+        maintainAspectRatio: false,
+        layout: { padding: { top: 24 } },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (item) => `환자 ${clData[item.dataIndex].patients}명 · 기관 ${clData[item.dataIndex].insts}곳`
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: { display: true, text: "환자 수 (명)" },
+            grid: { color: "#eee" }
+          },
+          x: {
+            grid: { display: false },
+            ticks: { font: { size: 14 } }
+          }
+        }
+      },
+      plugins: [valueLabels]
+    });
+
+    // 권역별 집계 (claim + institution 조인, region_cd → sido_code.csv의 region_nm)
+    const totalPatients = 218;
+    const regionData = [
+      { name: "수도권", patients: 105 },
+      { name: "영남권", patients: 61 },
+      { name: "강원충청권", patients: 34 },
+      { name: "호남제주권", patients: 18 }
+    ];
+    const regionText = (d) => `${d.patients}명 (${Math.round(d.patients / totalPatients * 100)}%)`;
+
+    // 가로 막대 끝에 "환자 수 (%)" 표시
+    const regionLabels = {
+      id: "regionLabels",
+      afterDatasetsDraw(chart) {
+        const { ctx } = chart;
+        ctx.save();
+        ctx.font = "13px 'Malgun Gothic', sans-serif";
+        ctx.fillStyle = "#333";
+        ctx.textBaseline = "middle";
+        chart.getDatasetMeta(0).data.forEach((bar, i) => {
+          ctx.fillText(regionText(regionData[i]), bar.x + 8, bar.y);
+        });
+        ctx.restore();
+      }
+    };
+
+    new Chart(document.getElementById("regionChart"), {
+      type: "bar",
+      data: {
+        labels: regionData.map(d => d.name),
+        datasets: [{
+          data: regionData.map(d => d.patients),
+          backgroundColor: ["#2b5cd6", "#9db4ec", "#9db4ec", "#9db4ec"],
+          borderRadius: 6,
+          barPercentage: 0.6
+        }]
+      },
+      options: {
+        indexAxis: "y",
+        maintainAspectRatio: false,
+        layout: { padding: { right: 100 } },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (item) => regionText(regionData[item.dataIndex])
+            }
+          }
+        },
+        scales: {
+          x: {
+            beginAtZero: true,
+            title: { display: true, text: "환자 수 (명)" },
+            grid: { color: "#eee" }
+          },
+          y: {
+            grid: { display: false },
+            ticks: { font: { size: 14 } }
+          }
+        }
+      },
+      plugins: [regionLabels]
+    });
+  </script>
+</body>
+</html>
